@@ -3,15 +3,22 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+interface IPackRegistry {
+  function registerMember(address member) external;
+}
+
 /// @title Pack - group money pool with threshold-approved payouts (native DOGE)
 contract Pack is ReentrancyGuard {
   // ---------- Errors ----------
+  error ZeroFactory();
   error ZeroCreator();
   error ZeroGoal();
   error InvalidDeadline();
   error InvalidMaxMembers();
   error InvalidThreshold();
-  error ZeroMetadataHash();
+  error InvalidName();
+  error InvalidEmoji();
+  error InvalidStory();
   error DeadlinePassed();
   error ZeroAmount();
   error PackFull();
@@ -60,6 +67,10 @@ contract Pack is ReentrancyGuard {
     uint256 balance;
     uint8 status;
     uint64 createdAt;
+    uint256 createdBlock;
+    string name;
+    string emoji;
+    string story;
   }
 
   // ---------- Constants ----------
@@ -69,6 +80,9 @@ contract Pack is ReentrancyGuard {
   uint8 private constant MIN_MEMBERS = 2;
   uint8 private constant MAX_MEMBERS = 12;
   uint256 private constant MAX_MEMO_LENGTH = 140;
+  uint256 private constant MAX_NAME_LENGTH = 48;
+  uint256 private constant MAX_EMOJI_LENGTH = 16;
+  uint256 private constant MAX_STORY_LENGTH = 160;
 
   uint8 public constant STATUS_FUNDING = 0;
   uint8 public constant STATUS_FUNDED = 1;
@@ -76,6 +90,7 @@ contract Pack is ReentrancyGuard {
   uint8 public constant STATUS_REFUNDABLE = 3;
 
   // ---------- Immutables ----------
+  address public immutable factory;
   address public immutable creator;
   uint256 public immutable goal;
   uint64 public immutable deadline;
@@ -84,6 +99,11 @@ contract Pack is ReentrancyGuard {
   bytes32 public immutable metadataHash;
   uint64 public immutable createdAt;
   uint256 public immutable createdBlock;
+
+  // ---------- Metadata ----------
+  string public name;
+  string public emoji;
+  string public story;
 
   // ---------- State ----------
   uint256 public totalContributed;
@@ -104,20 +124,27 @@ contract Pack is ReentrancyGuard {
   event PayoutExecuted(uint256 indexed id, address indexed recipient, uint256 amount);
   event RefundClaimed(address indexed member, uint256 amount);
 
+  // factory_: address, PackFactory (registry) address, 0x5f1E9E3Efd3AC0B5C26fAb83D71bd02295Ca28e4
   // creator_: address, Pack creator address, 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb
+  // name_: string, Pack name (1..48 bytes), "Weekend Trip"
+  // emoji_: string, Pack emoji (1..16 bytes), "🐕"
+  // story_: string, Short pack story (0..160 bytes), "Saving for the lake house"
   // goal_: uint256, Funding goal in wei (18 decimals DOGE), 100000000000000000000 = 100 DOGE
   // deadline_: uint64, Funding deadline unix timestamp (>1h and <365d from now), 1767225600
   // threshold_: uint8, Approvals required to execute a payout (2..maxMembers), 2
   // maxMembers_: uint8, Maximum number of members (2..12), 5
-  // metadataHash_: bytes32, Hash of off-chain metadata (non-zero), 0x1234...abcd
   constructor(
+    address factory_,
     address creator_,
+    string memory name_,
+    string memory emoji_,
+    string memory story_,
     uint256 goal_,
     uint64 deadline_,
     uint8 threshold_,
-    uint8 maxMembers_,
-    bytes32 metadataHash_
+    uint8 maxMembers_
   ) {
+    if (factory_ == address(0)) revert ZeroFactory();
     if (creator_ == address(0)) revert ZeroCreator();
     if (goal_ == 0) revert ZeroGoal();
     if (
@@ -126,16 +153,21 @@ contract Pack is ReentrancyGuard {
     ) revert InvalidDeadline();
     if (maxMembers_ < MIN_MEMBERS || maxMembers_ > MAX_MEMBERS) revert InvalidMaxMembers();
     if (threshold_ < MIN_MEMBERS || threshold_ > maxMembers_) revert InvalidThreshold();
-    if (metadataHash_ == bytes32(0)) revert ZeroMetadataHash();
+    _validateMetadata(name_, emoji_, story_);
 
+    factory = factory_;
     creator = creator_;
     goal = goal_;
     deadline = deadline_;
     threshold = threshold_;
     maxMembers = maxMembers_;
-    metadataHash = metadataHash_;
+    metadataHash = keccak256(abi.encode(name_, emoji_, story_));
     createdAt = uint64(block.timestamp);
     createdBlock = block.number;
+
+    name = name_;
+    emoji = emoji_;
+    story = story_;
   }
 
   // ---------- Modifiers ----------
@@ -149,7 +181,8 @@ contract Pack is ReentrancyGuard {
     if (block.timestamp > deadline) revert DeadlinePassed();
     if (msg.value == 0) revert ZeroAmount();
 
-    if (contributions[msg.sender] == 0) {
+    bool isNew = contributions[msg.sender] == 0;
+    if (isNew) {
       if (memberCount >= maxMembers) revert PackFull();
       unchecked {
         memberCount++;
@@ -159,6 +192,10 @@ contract Pack is ReentrancyGuard {
 
     contributions[msg.sender] += msg.value;
     totalContributed += msg.value;
+
+    if (isNew) {
+      IPackRegistry(factory).registerMember(msg.sender);
+    }
 
     emit Contributed(msg.sender, msg.value, totalContributed);
   }
@@ -251,6 +288,17 @@ contract Pack is ReentrancyGuard {
     return proposals[id];
   }
 
+  function getProposals() external view returns (Proposal[] memory list) {
+    uint256 count = proposalCount;
+    list = new Proposal[](count);
+    for (uint256 i = 0; i < count; ) {
+      list[i] = proposals[i];
+      unchecked {
+        ++i;
+      }
+    }
+  }
+
   function status() public view returns (uint8) {
     return _status();
   }
@@ -270,9 +318,25 @@ contract Pack is ReentrancyGuard {
     s.balance = address(this).balance;
     s.status = _status();
     s.createdAt = createdAt;
+    s.createdBlock = createdBlock;
+    s.name = name;
+    s.emoji = emoji;
+    s.story = story;
   }
 
   // ---------- Internal ----------
+  function _validateMetadata(
+    string memory name_,
+    string memory emoji_,
+    string memory story_
+  ) internal pure {
+    uint256 nameLen = bytes(name_).length;
+    if (nameLen == 0 || nameLen > MAX_NAME_LENGTH) revert InvalidName();
+    uint256 emojiLen = bytes(emoji_).length;
+    if (emojiLen == 0 || emojiLen > MAX_EMOJI_LENGTH) revert InvalidEmoji();
+    if (bytes(story_).length > MAX_STORY_LENGTH) revert InvalidStory();
+  }
+
   function _status() internal view returns (uint8) {
     if (totalPaidOut > 0) return STATUS_PAID_OUT;
     if (totalContributed >= goal) return STATUS_FUNDED;

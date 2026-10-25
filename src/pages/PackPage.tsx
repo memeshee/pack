@@ -1,60 +1,75 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useBalance } from 'wagmi';
 import { isAddress, type Address } from 'viem';
 import { AppShell } from '@/components/layout/AppShell';
 import { ReceiptStrip } from '@/components/landing/ReceiptStrip';
-import { AddressText } from '@/components/pack/AddressText';
-import { Amount } from '@/components/pack/Amount';
 import { PackButton } from '@/components/pack/PackButton';
 import { PackTicket } from '@/components/pack/PackTicket';
 import { TicketSkeleton } from '@/components/pack/TicketSkeleton';
 import { toTicketView } from '@/components/pack/ticketView';
-import { usePackSummary } from '@/hooks/usePacks';
-import { decodeMetadataParam } from '@/lib/metadata';
+import { ActionPanel } from '@/components/packpage/ActionPanel';
+import { PackDetails } from '@/components/packpage/PackDetails';
+import { ProposalCard } from '@/components/packpage/ProposalCard';
+import { ShareCard } from '@/components/packpage/ShareCard';
+import { StickyBar } from '@/components/packpage/StickyBar';
+import { usePackSummary, useProposals, useViewerState } from '@/hooks/usePacks';
+import { useWalletControls } from '@/hooks/useWalletControls';
+import { TARGET_CHAIN } from '@/lib/config';
 
-/** Read-only pack view from chain state. Actions (chip in / approve / release / refund) ship next. */
+const Missing = () => (
+    <AppShell>
+        <section className="container max-w-xl py-24">
+            <div className="ticket p-8">
+                <h1 className="font-display text-4xl">We can't find that pack.</h1>
+                <p className="mt-3 text-ink-soft">The link might be cut off, or that address isn't a Pack on DogeOS testnet.</p>
+                <PackButton asChild className="mt-6"><Link to="/">See live packs</Link></PackButton>
+            </div>
+        </section>
+    </AppShell>
+);
+
 const PackPage = () => {
     const { address = '' } = useParams();
     const [params] = useSearchParams();
     const valid = isAddress(address);
+    const w = useWalletControls();
+    const viewer = w.address as Address | undefined;
     const { data: pack, isLoading, isError } = usePackSummary(valid ? (address as Address) : undefined);
+    const { data: proposals = [] } = useProposals(pack?.address, pack?.proposalCount);
+    const { data: me } = useViewerState(pack?.address, viewer, proposals.map((p) => p.id));
+    const { data: bal } = useBalance({ address: viewer, chainId: TARGET_CHAIN.id, query: { enabled: !!viewer, refetchInterval: 15_000 } });
 
-    if (!valid || isError) {
-        return (
-            <AppShell>
-                <section className="container max-w-xl py-24">
-                    <div className="ticket p-8">
-                        <h1 className="font-display text-4xl">We can't find that pack.</h1>
-                        <p className="mt-3 text-ink-soft">The link might be cut off, or that address isn't a Pack on DogeOS testnet.</p>
-                        <PackButton asChild className="mt-6"><Link to="/">See live packs</Link></PackButton>
-                    </div>
-                </section>
-            </AppShell>
-        );
-    }
+    if (!valid || isError) return <Missing />;
+    const isMember = (me?.contribution ?? 0n) > 0n;
+    const ordered = [...proposals].sort((a, b) => Number(a.executed || a.expired) - Number(b.executed || b.expired) || Number(b.id - a.id));
 
     return (
         <AppShell>
-            <section className="container grid gap-10 py-10 lg:grid-cols-[1.25fr_1fr] lg:py-14">
-                <div>
-                    {isLoading || !pack ? <TicketSkeleton size="lg" /> : <PackTicket view={toTicketView(pack, decodeMetadataParam(params.get('m')))} />}
+            <section className="container grid gap-10 py-8 pb-28 lg:grid-cols-[1.2fr_1fr] lg:py-14">
+                <div className="space-y-8">
+                    {isLoading || !pack ? <TicketSkeleton size="lg" /> : <PackTicket view={toTicketView(pack)} />}
+                    {pack && <ActionPanel pack={pack} viewer={me} walletBalance={bal?.value} />}
                     {pack && (
-                        <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-3 font-mono text-xs uppercase tracking-[0.08em]">
-                            <dt className="text-ink-soft">Balance</dt>
-                            <dd className="text-right"><Amount wei={pack.balance} /></dd>
-                            <dt className="text-ink-soft">Paid out</dt>
-                            <dd className="text-right"><Amount wei={pack.totalPaidOut} /></dd>
-                            <dt className="text-ink-soft">Pack contract</dt>
-                            <dd className="text-right normal-case"><AddressText address={pack.address} link /></dd>
-                            <dt className="text-ink-soft">Organizer</dt>
-                            <dd className="text-right normal-case"><AddressText address={pack.creator} link /></dd>
-                        </dl>
+                        <section aria-labelledby="spends" className="space-y-3">
+                            <h2 id="spends" className="font-display text-3xl">Spends</h2>
+                            {ordered.length === 0 ? (
+                                <p className="text-sm text-ink-soft">When the pot hits the goal, decide what it's for.</p>
+                            ) : (
+                                ordered.map((p) => <ProposalCard key={p.id.toString()} p={p} pack={pack} isMember={isMember} approved={!!me?.approved[p.id.toString()]} />)
+                            )}
+                        </section>
                     )}
                 </div>
-                <div>
-                    <h2 className="font-display text-3xl">The receipt</h2>
-                    <ReceiptStrip pack={pack?.address} fromBlock={pack?.createdBlock} limit={25} className="mt-4" />
-                </div>
+                <aside className="space-y-8">
+                    {pack && <ShareCard address={pack.address} name={toTicketView(pack).name} highlight={params.get('new') === '1'} />}
+                    <div>
+                        <h2 className="font-display text-3xl">The receipt</h2>
+                        <ReceiptStrip pack={pack?.address} fromBlock={pack?.createdBlock} limit={30} className="mt-4" />
+                    </div>
+                    {pack && <PackDetails pack={pack} />}
+                </aside>
             </section>
+            {pack && <StickyBar pack={pack} />}
         </AppShell>
     );
 };

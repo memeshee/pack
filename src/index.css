@@ -166,4 +166,60 @@
   .hairline {
     border-color: hsl(var(--ink) / 0.14);
   }
+
+  /* Form fields: ruled, ink-bordered, paper fill */
+  .field-input {
+    width: 100%;
+    min-height: 2.75rem;
+    border-radius: 6px;
+    border: 1.5px solid hsl(var(--ink));
+    background-color: hsl(var(--paper-light));
+    padding: 0.55rem 0.8rem;
+    font-size: 15px;
+    color: hsl(var(--ink));
+    transition: box-shadow var(--dur-fast) ease, background-color var(--dur-fast) ease;
+  }
+  .field-input::placeholder {
+    color: hsl(var(--ink-faint));
+  }
+  .field-input:focus {
+    outline: none;
+    background-color: hsl(0 0% 100% / 0.7);
+    box-shadow: 3px 3px 0 0 hsl(var(--doge));
+  }
+  .field-input[aria-invalid="true"] {
+    border-color: hsl(var(--stamp));
+    box-shadow: 3px 3px 0 0 hsl(var(--stamp) / 0.35);
+  }
+
+  /* Selectable chip (presets, emoji, steppers) */
+  .chip {
+    display: inline-flex;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1.5px solid hsl(var(--ink) / 0.35);
+    background-color: hsl(var(--paper-light));
+    padding: 0 0.85rem;
+    font-weight: 600;
+    transition: transform var(--dur-fast) ease, background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .chip:hover {
+    border-color: hsl(var(--ink));
+  }
+  .chip[aria-pressed="true"] {
+    border-color: hsl(var(--ink));
+    background-color: hsl(var(--doge));
+    box-shadow: 2px 2px 0 0 hsl(var(--ink));
+  }
+
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: hsl(var(--ink-soft));
+  }
 }

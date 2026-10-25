@@ -17,5 +17,4 @@ export const SAMPLE_TICKET: TicketView = {
     threshold: 2,
     maxMembers: 6,
     members: ['0x7a31c2d0000000000000000000000000000000a1', '0x1f9e44b0000000000000000000000000000000b2', '0xc0de5a70000000000000000000000000000000c3'],
-    verifiedMeta: false,
 };
