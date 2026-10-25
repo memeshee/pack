@@ -1,0 +1,22 @@
+# Keep the Vercel upload small (limit: 10 MB). Vercel installs deps and builds itself.
+
+# Dependencies & build output — rebuilt on Vercel
+node_modules
+dist
+.vite
+cache
+
+# Lockfile is regenerated during install (also gitignored)
+bun.lock
+
+# Smart-contract workspace: compiler build-info, OpenZeppelin artifacts, typechain,
+# caches and logs. The app only needs the ABIs already copied into src/abi and the
+# address in src/contracts/address.ts.
+solidity_workspace
+
+# Note: .env is intentionally uploaded — it only holds public VITE_* ids
+# (DogeOS client id, WalletConnect project id) that are bundled into the app anyway.
+.env.local
+
+# OS files
+.DS_Store
