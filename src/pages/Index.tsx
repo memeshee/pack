@@ -1,28 +1,27 @@
-import React from 'react';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount } from 'wagmi';
+import { useMemo } from 'react';
+import { AppShell } from '@/components/layout/AppShell';
+import { Hero } from '@/components/landing/Hero';
+import { HowItWorks } from '@/components/landing/HowItWorks';
+import { LivePacks } from '@/components/landing/LivePacks';
+import { ProofStrip } from '@/components/landing/ProofStrip';
+import { useLivePacks } from '@/hooks/usePacks';
 
 const Index = () => {
-    const { isConnected } = useAccount();
+    const { data: packs, isLoading, isError, refetch } = useLivePacks(6);
+
+    /** Feature the fullest live pot — the most convincing ticket. */
+    const featured = useMemo(
+        () => (packs?.length ? [...packs].sort((a, b) => (b.totalContributed > a.totalContributed ? 1 : -1))[0] : undefined),
+        [packs],
+    );
 
     return (
-        <div className="min-h-screen bg-white flex flex-col">
-            {/* Top navbar */}
-            <header className="flex items-center justify-end px-4 py-4">
-                {/* Connect / account / wrong-network button. Only TARGET_CHAIN is configured. */}
-                <ConnectButton chainStatus="icon" showBalance />
-            </header>
-
-            {/* Centered content */}
-            <main className="flex-1 flex flex-col items-center justify-center">
-                <p style={{ margin: 0, fontSize: '15px', fontWeight: 400, color: '#3a3a3a', letterSpacing: '0.01em', textAlign: 'center' }}>
-                    Start building your app
-                </p>
-                <p style={{ margin: '6px 0 0', fontSize: '13px', fontWeight: 300, color: '#6b6b6b', textAlign: 'center' }}>
-                    {isConnected ? 'Your wallet is connected' : 'Connect your wallet to get started'}
-                </p>
-            </main>
-        </div>
+        <AppShell>
+            <Hero featured={featured} loading={isLoading} />
+            <HowItWorks />
+            <ProofStrip />
+            <LivePacks packs={packs} loading={isLoading} error={isError} onRetry={() => refetch()} />
+        </AppShell>
     );
 };
 

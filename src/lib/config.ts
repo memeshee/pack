@@ -15,7 +15,7 @@ export const BLOCK_EXPLORERS = {
 
 export const TESTNET_CONFIG = {
     chainId: 6281971,
-    name: 'DOGE Testnet',
+    name: 'DogeOS Chikyū Testnet',
     ticker: 'DOGE',
     atomicUnit: 'wei',
     decimals: 18,
@@ -24,6 +24,18 @@ export const TESTNET_CONFIG = {
 };
 
 export const DEFAULT_CHAIN_ID = CHAIN_IDS.testnet;
+
+/** Official DogeOS testnet faucet (~42 DOGE/day). */
+export const FAUCET_URL = 'https://faucet.testnet.dogeos.com';
+
+/** DogeOS SDK client id (public). Empty → fall back to browser wallets via RainbowKit. */
+export const DOGEOS_CLIENT_ID = import.meta.env.VITE_DOGEOS_CLIENT_ID ?? '';
+export const DOGEOS_SDK_ENABLED = DOGEOS_CLIENT_ID.trim().length > 0;
+
+const explorerBase = () => TESTNET_CONFIG.explorerUrl.replace(/\/$/, '');
+export const explorerTx = (hash: string) => `${explorerBase()}/tx/${hash}`;
+export const explorerAddress = (address: string) => `${explorerBase()}/address/${address}`;
+export const explorerBlock = (n: bigint | number) => `${explorerBase()}/block/${n.toString()}`;
 
 export const TOKEN_CONFIG = {
     ticker: 'DOGE',
