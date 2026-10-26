@@ -150,8 +150,6 @@ export async function getMyPackAddresses(user: Address): Promise<Address[]> {
     });
 }
 
-export const isPackAddress = (address: Address) => readFactory<boolean>('isPack', [address]);
-
 /* ---------- formatting ---------- */
 
 /** Wei → human DOGE string. Never uses JS number for the raw amount. */

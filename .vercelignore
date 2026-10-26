@@ -1,10 +1,13 @@
 # Keep the Vercel upload small (limit: 10 MB). Vercel installs deps and builds itself.
 
+.git
+
 # Dependencies & build output — rebuilt on Vercel
 node_modules
 dist
 .vite
 cache
+*.log
 
 # Lockfile is regenerated during install (also gitignored)
 bun.lock

@@ -30,7 +30,7 @@ export function ConnectButton() {
     return (
         <PackButton size="sm" onClick={w.open} disabled={w.isConnecting} aria-label="Sign in to Pack">
             {w.isConnecting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            {w.isConnecting ? 'Signing in…' : w.provider === 'dogeos' ? 'Sign in' : 'Connect wallet'}
+            {w.isConnecting ? 'Signing in…' : w.provider === 'dogeos' ? 'Sign in' : 'Use a browser wallet'}
         </PackButton>
     );
 }

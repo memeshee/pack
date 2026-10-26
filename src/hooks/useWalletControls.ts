@@ -1,7 +1,7 @@
 import { useAccount as useDogeAccount, useWalletConnect } from '@dogeos/dogeos-sdk';
-import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { DOGEOS_SDK_ENABLED, TARGET_CHAIN } from '@/lib/config';
+import { getInjectedConnector } from '@/lib/wagmi';
 
 export interface WalletControls {
     address?: string;
@@ -29,17 +29,17 @@ function useDogeOSControls(): WalletControls {
     };
 }
 
-/** Fallback when no DogeOS client id is configured: browser wallets via RainbowKit. */
+/** Fallback when no DogeOS client id is configured: "Use a browser wallet" via the injected connector. */
 function useBrowserControls(): WalletControls {
-    const { openConnectModal } = useConnectModal();
+    const { connect, isPending } = useConnect();
     const { disconnect } = useDisconnect();
-    const { address, isConnected, isConnecting, chainId } = useAccount();
+    const { address, isConnected, chainId } = useAccount();
     return {
         address,
         isConnected,
-        isConnecting,
+        isConnecting: isPending,
         wrongChain: isConnected && chainId !== TARGET_CHAIN.id,
-        open: () => openConnectModal?.(),
+        open: () => connect({ connector: getInjectedConnector() }),
         disconnect: () => disconnect(),
         provider: 'browser',
     };

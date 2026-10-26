@@ -1,45 +1,21 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { BrowserProvider, JsonRpcSigner } from 'ethers';
-import {
-    injectedWallet,
-    metaMaskWallet,
-    trustWallet,
-    walletConnectWallet,
-} from '@rainbow-me/rainbowkit/wallets';
 import { BaseError, UserRejectedRequestError, numberToHex, type EIP1193Provider } from 'viem';
-import { http } from 'wagmi';
-import { getAccount, getConnectorClient, switchChain } from 'wagmi/actions';
+import { createConfig, http } from 'wagmi';
+import { injected } from 'wagmi/connectors';
+import { getAccount, switchChain } from 'wagmi/actions';
 import { TESTNET_CONFIG, TARGET_CHAIN } from '@/lib/config';
-
-// WalletConnect Cloud project id (https://cloud.reown.com). Needed for mobile / QR
-// wallets; browser-extension wallets work without it.
-const envProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
-const projectId = envProjectId || 'YOUR_PROJECT_ID';
-if (!envProjectId) {
-    console.warn('VITE_WALLETCONNECT_PROJECT_ID is not set: only browser-extension wallets are offered.');
-}
-
-// Without a real project id, MetaMask / Trust / WalletConnect fall back to the
-// WalletConnect relay (QR / deep link) whenever the extension isn't detected, and
-// the relay rejects the connection ("origin not allowed"). Offer only the
-// injected browser wallet in that case.
-const wallets = envProjectId
-    ? [
-        { groupName: 'Popular', wallets: [metaMaskWallet, trustWallet, walletConnectWallet] },
-        { groupName: 'Other', wallets: [injectedWallet] },
-    ]
-    : [{ groupName: 'Installed', wallets: [injectedWallet] }];
 
 /**
  * Module-level singleton: use it from React (via <WagmiProvider>) and from plain
  * TS services (via `wagmi/actions`, e.g. `readContract(wagmiConfig, ...)`).
+ *
+ * Browser-extension wallets only (MetaMask, Trust Wallet, Rabby, ...) via the
+ * injected connector. No WalletConnect relay / QR flow — the DogeOS SDK handles
+ * mobile and embedded-wallet sign-in as the primary flow (see Web3Provider.tsx).
  */
-export const wagmiConfig = getDefaultConfig({
-    appName: 'Pack',
-    projectId,
+export const wagmiConfig = createConfig({
     chains: [TARGET_CHAIN],
+    connectors: [injected({ shimDisconnect: true })],
     transports: { [TARGET_CHAIN.id]: http(TESTNET_CONFIG.rpcUrl) },
-    wallets,
     ssr: false,
 });
 
@@ -90,20 +66,11 @@ export async function ensureTargetChain(): Promise<void> {
     }
 }
 
-/** Address of the wallet connected through RainbowKit, or null. Safe to call anywhere. */
+/** Address of the connected wallet, or null. Safe to call anywhere. */
 export const getConnectedAddress = (): string | null => {
     const { isConnected, address } = getAccount(wagmiConfig);
     return isConnected && address ? address : null;
 };
 
-/**
- * ethers v6 signer for the wallet connected through RainbowKit (MetaMask, Trust,
- * WalletConnect, ...). Ensures TARGET_CHAIN first. Use this for all contract
- * writes — never build a signer from `window.ethereum`.
- */
-export async function getEthersSigner(): Promise<JsonRpcSigner> {
-    await ensureTargetChain();
-    const client = await getConnectorClient(wagmiConfig, { chainId: TARGET_CHAIN.id });
-    const provider = new BrowserProvider(client.transport, { chainId: client.chain.id, name: client.chain.name });
-    return new JsonRpcSigner(provider, client.account.address);
-}
+/** The sole injected connector, used by the browser-wallet fallback "Use a browser wallet" action. */
+export const getInjectedConnector = () => wagmiConfig.connectors[0];
