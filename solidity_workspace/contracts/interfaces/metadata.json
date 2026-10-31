@@ -1,11 +1,11 @@
 {
   "contract_name": "PackFactory",
-  "contract_address": "0x366D75889b5A2BffA7fBA818726E6810A4490cda",
+  "contract_address": "0x3D4847a77e5fA608d79A993a193EEae786B2Bef8",
   "network": "dogeos-testnet",
   "chain_id": 6281971,
   "native_token": "DOGE",
-  "transaction_hash": "0x42033dd00a4dc30d6edde7d25e2b9c272f105e2ac808a78bfd13829f0c4a1bd8",
-  "explorer": "https://blockscout.testnet.dogeos.com/address/0x366D75889b5A2BffA7fBA818726E6810A4490cda",
+  "transaction_hash": "0x15ec3f10532b84409d0af0c8ce74a383919bf975cad94a108bcc84b04b71f143",
+  "explorer": "https://blockscout.testnet.dogeos.com/address/0x3D4847a77e5fA608d79A993a193EEae786B2Bef8",
   "constructor_args": [],
   "abi": [
     {"inputs":[],"name":"NotPack","type":"error"},

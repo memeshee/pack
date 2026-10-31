@@ -36,6 +36,30 @@ const config: HardhatUserConfig = {
             },
         ],
     },
+    networks: {
+        dogeosTestnet: {
+            url: 'https://rpc.testnet.dogeos.com',
+            chainId: 6281971,
+        },
+    },
+    etherscan: {
+        apiKey: {
+            dogeosTestnet: 'blockscout',
+        },
+        customChains: [
+            {
+                network: 'dogeosTestnet',
+                chainId: 6281971,
+                urls: {
+                    apiURL: 'https://blockscout.testnet.dogeos.com/api',
+                    browserURL: 'https://blockscout.testnet.dogeos.com',
+                },
+            },
+        ],
+    },
+    sourcify: {
+        enabled: false,
+    },
 };
 
 export default config;
