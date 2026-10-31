@@ -8,8 +8,10 @@ const STYLES: Record<PackStatusValue, { label: string; className: string }> = {
     [PackStatus.Refundable]: { label: 'Refundable', className: 'bg-stamp text-paper-light' },
 };
 
-export function StatusChip({ status, className }: { status: PackStatusValue; className?: string }) {
-    const s = STYLES[status] ?? STYLES[PackStatus.Funding];
+/** "Paid out" only when nothing is left; otherwise the pack is still paying out. */
+export function StatusChip({ status, balance, className }: { status: PackStatusValue; balance?: bigint; className?: string }) {
+    const base = STYLES[status] ?? STYLES[PackStatus.Funding];
+    const s = status === PackStatus.PaidOut && balance !== undefined && balance > 0n ? { ...base, label: 'Paid, balance left' } : base;
     return (
         <span className={cn('inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em]', s.className, className)}>
             <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />

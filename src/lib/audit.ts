@@ -40,6 +40,9 @@ export async function auditPack(address: Address): Promise<PackAudit> {
     const executed = proposals.filter((p) => p.executed);
     const hash = keccak256(encodeAbiParameters([{ type: 'string' }, { type: 'string' }, { type: 'string' }], [pack.name, pack.emoji, pack.story]));
     const goalMet = pack.totalContributed >= pack.goal;
+    const enough = pack.memberCount >= pack.threshold;
+    // Refunds are legitimate when the goal was missed OR too few backers existed to ever approve a spend.
+    const refundAllowed = !goalMet || !enough;
 
     const checks: Check[] = [
         { label: 'Contributions match the event log', ok: contributed === pack.totalContributed, detail: `${d(contributed)} in events · ${d(pack.totalContributed)} on contract` },
@@ -50,7 +53,9 @@ export async function auditPack(address: Address): Promise<PackAudit> {
         { label: 'Within the member cap', ok: pack.memberCount <= pack.maxMembers, detail: `${pack.memberCount} of ${pack.maxMembers}` },
         { label: 'Every payout had enough approvals', ok: executed.every((p) => p.approvals >= pack.threshold), detail: `${executed.length} paid · threshold ${pack.threshold}` },
         { label: 'No payout before the goal', ok: pack.totalPaidOut === 0n || goalMet, detail: goalMet ? 'Goal met' : 'Goal not met' },
-        { label: 'No refunds once the goal was met', ok: pack.totalRefunded === 0n || !goalMet, detail: `${d(pack.totalRefunded)} refunded` },
+        { label: 'Enough backers to approve', ok: enough || !goalMet, detail: `${pack.memberCount} backers · ${pack.threshold} approvals needed${enough ? '' : goalMet ? ' — goal met but pot is stuck until refunds open' : ' — not needed until the goal is met'}` },
+        { label: 'Refunds only when the goal was missed or backers were too few', ok: pack.totalRefunded === 0n || refundAllowed, detail: `${d(pack.totalRefunded)} refunded · ${goalMet ? 'goal met' : 'goal missed'}, ${enough ? 'enough' : 'too few'} backers` },
+        { label: 'No payout and refund both happened', ok: pack.totalPaidOut === 0n || pack.totalRefunded === 0n, detail: `${d(pack.totalPaidOut)} paid · ${d(pack.totalRefunded)} refunded` },
         { label: 'Name & story match the on-chain hash', ok: hash.toLowerCase() === pack.metadataHash.toLowerCase(), detail: `${pack.metadataHash.slice(0, 10)}…${pack.metadataHash.slice(-6)}` },
     ];
 

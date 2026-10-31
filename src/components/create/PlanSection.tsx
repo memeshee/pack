@@ -1,6 +1,6 @@
 import { Field } from '@/components/pack/Field';
 import { LIMITS } from '@/lib/pack';
-import type { CreateForm } from '@/lib/validate';
+import { byteLength, clampBytes, type CreateForm } from '@/lib/validate';
 
 const EMOJI = ['🍜', '🎉', '✈️', '🎁', '🏕️', '🍕', '🎟️', '🐕'];
 
@@ -15,8 +15,8 @@ export function PlanSection({ form, errors, update }: Props) {
         <fieldset className="space-y-5">
             <legend className="eyebrow">01 · The plan</legend>
             <Field id="name" label="What's it called?" error={errors.name}>
-                <input id="name" className="field-input font-display text-2xl" placeholder="Doge Dinner — Friday" maxLength={LIMITS.name} value={form.name}
-                    onChange={(e) => update('name', e.target.value)} aria-invalid={!!errors.name} autoComplete="off" />
+                <input id="name" className="field-input font-display text-2xl" placeholder="Doge Dinner — Friday" value={form.name}
+                    onChange={(e) => update('name', clampBytes(e.target.value, LIMITS.name))} aria-invalid={!!errors.name} autoComplete="off" />
             </Field>
             <div className="space-y-1.5">
                 <span className="block text-sm font-semibold tracking-tight">Pick a sticker</span>
@@ -28,9 +28,9 @@ export function PlanSection({ form, errors, update }: Props) {
                     ))}
                 </div>
             </div>
-            <Field id="story" label="The story (optional)" hint={`${form.story.length}/${LIMITS.story} · Shown to everyone who opens the link.`} error={errors.story}>
+            <Field id="story" label="The story (optional)" hint={`${byteLength(form.story)}/${LIMITS.story} bytes · Shown to everyone who opens the link.`} error={errors.story}>
                 <textarea id="story" rows={2} className="field-input resize-none" placeholder="Rooftop table for the crew. We book it when the pot hits the goal."
-                    maxLength={LIMITS.story} value={form.story} onChange={(e) => update('story', e.target.value)} aria-invalid={!!errors.story} />
+                    value={form.story} onChange={(e) => update('story', clampBytes(e.target.value, LIMITS.story))} aria-invalid={!!errors.story} />
             </Field>
         </fieldset>
     );

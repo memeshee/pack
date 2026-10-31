@@ -1,7 +1,23 @@
 import { isAddress, parseEther } from 'viem';
 import { LIMITS } from '@/lib/pack';
 
-const bytes = (s: string) => new TextEncoder().encode(s).length;
+const encoder = new TextEncoder();
+/** The contract caps UTF-8 bytes, not characters: emoji take 4, accents 2. */
+export const byteLength = (s: string) => encoder.encode(s).length;
+const bytes = byteLength;
+
+/** Trims a string to at most `max` UTF-8 bytes without splitting a character. */
+export function clampBytes(s: string, max: number): string {
+    let out = '';
+    let used = 0;
+    for (const ch of s) {
+        const n = byteLength(ch);
+        if (used + n > max) break;
+        out += ch;
+        used += n;
+    }
+    return out;
+}
 const AMOUNT_RE = /^\d+(\.\d{1,18})?$/;
 
 /** Parses a DOGE amount string to wei, or null if malformed / zero. */
@@ -33,9 +49,9 @@ export function validateCreate(f: CreateForm): Partial<Record<keyof CreateForm, 
     const e: Partial<Record<keyof CreateForm, string>> = {};
     const now = Date.now() / 1000;
     if (!f.name.trim()) e.name = 'Give the plan a name.';
-    else if (bytes(f.name.trim()) > LIMITS.name) e.name = `Keep it under ${LIMITS.name} characters.`;
+    else if (bytes(f.name.trim()) > LIMITS.name) e.name = `Keep it within ${LIMITS.name} bytes (emoji and accents count extra).`;
     if (!f.emoji || bytes(f.emoji) > LIMITS.emoji) e.emoji = 'Pick one emoji.';
-    if (bytes(f.story.trim()) > LIMITS.story) e.story = `Keep the story under ${LIMITS.story} characters.`;
+    if (bytes(f.story.trim()) > LIMITS.story) e.story = `Keep the story within ${LIMITS.story} bytes (emoji and accents count extra).`;
     if (!parseDoge(f.goal)) e.goal = 'Set a goal above zero, like 300.';
     const d = f.deadline ? deadlineUnix(f.deadline) : NaN;
     if (!Number.isFinite(d)) e.deadline = 'Pick a deadline.';
@@ -61,6 +77,6 @@ export function validateProposal(f: ProposalForm, pack: string, balance: bigint)
     if (!wei) e.amount = 'Enter an amount above zero.';
     else if (wei > balance) e.amount = "The pot doesn't hold that much.";
     if (!f.memo.trim()) e.memo = "Say what it's for.";
-    else if (bytes(f.memo.trim()) > LIMITS.memo) e.memo = `Keep it under ${LIMITS.memo} characters.`;
+    else if (bytes(f.memo.trim()) > LIMITS.memo) e.memo = `Keep it within ${LIMITS.memo} bytes (emoji and accents count extra).`;
     return e;
 }

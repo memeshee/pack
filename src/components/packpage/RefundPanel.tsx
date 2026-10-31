@@ -2,16 +2,19 @@ import { Amount } from '@/components/pack/Amount';
 import { PackButton } from '@/components/pack/PackButton';
 import { TxStatus } from '@/components/pack/TxStatus';
 import { usePackTx } from '@/hooks/usePackTx';
-import { PACK_ABI, type PackSummary, type ViewerState } from '@/lib/pack';
+import { PACK_ABI, packPhase, type PackSummary, type ViewerState } from '@/lib/pack';
 
-/** Goal missed by the deadline: each backer takes back exactly what they put in. */
+/** Goal missed, or too few backers to ever approve a spend: each backer takes back exactly what they put in. */
 export function RefundPanel({ pack, viewer }: { pack: PackSummary; viewer?: ViewerState }) {
     const tx = usePackTx();
     const mine = viewer?.contribution ?? 0n;
+    const tooFew = packPhase(pack).goalMet;
 
     return (
         <div className="space-y-3">
-            <p className="font-display text-2xl leading-tight">The goal wasn't met. Take your DOGE back.</p>
+            <p className="font-display text-2xl leading-tight">
+                {tooFew ? "Too few backers to spend the pot. Take your DOGE back." : "The goal wasn't met. Take your DOGE back."}
+            </p>
             {viewer?.refunded ? (
                 <p className="text-sm text-moss">You got your <Amount wei={mine} /> back.</p>
             ) : mine > 0n ? (

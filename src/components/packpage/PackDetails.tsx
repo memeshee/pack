@@ -7,7 +7,7 @@ import type { PackSummary } from '@/lib/pack';
 export function PackDetails({ pack }: { pack: PackSummary }) {
     const rows: [string, React.ReactNode][] = [
         ['Balance', <Amount key="b" wei={pack.balance} />],
-        ['Paid out', <Amount key="p" wei={pack.totalPaidOut} />],
+        ['Paid so far', <Amount key="p" wei={pack.totalPaidOut} />],
         ['Refunded', <Amount key="r" wei={pack.totalRefunded} />],
         ['Deadline', new Date(pack.deadline * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })],
         ['Pack contract', <AddressText key="a" address={pack.address} link />],

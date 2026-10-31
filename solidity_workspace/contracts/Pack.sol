@@ -190,8 +190,16 @@ contract Pack is ReentrancyGuard {
       _members.push(msg.sender);
     }
 
+    uint256 previousTotal = totalContributed;
     contributions[msg.sender] += msg.value;
-    totalContributed += msg.value;
+    totalContributed = previousTotal + msg.value;
+
+    // A contribution that crosses the goal needs enough backers to approve a spend,
+    // otherwise the pot could never be paid out or refunded. Contributions after the
+    // goal is already met are never blocked.
+    if (previousTotal < goal && totalContributed >= goal && memberCount < threshold) {
+      revert NotEnoughMembers();
+    }
 
     if (isNew) {
       IPackRegistry(factory).registerMember(msg.sender);
@@ -206,6 +214,7 @@ contract Pack is ReentrancyGuard {
     string calldata memo
   ) external onlyMember returns (uint256 id) {
     if (totalContributed < goal) revert GoalNotReached();
+    if (memberCount < threshold) revert NotEnoughMembers();
     if (recipient == address(0) || recipient == address(this)) revert InvalidRecipient();
     if (amount == 0) revert ZeroAmount();
     if (amount > address(this).balance) revert InsufficientBalance(amount, address(this).balance);
@@ -260,7 +269,8 @@ contract Pack is ReentrancyGuard {
 
   function claimRefund() external nonReentrant {
     if (block.timestamp <= deadline) revert DeadlineNotPassed();
-    if (totalContributed >= goal) revert GoalReached();
+    // Refundable when the goal was missed OR too few backers exist to ever approve a spend.
+    if (totalContributed >= goal && memberCount >= threshold) revert GoalReached();
     if (totalPaidOut != 0) revert PayoutsMade();
     uint256 amt = contributions[msg.sender];
     if (amt == 0) revert NothingToRefund();
@@ -339,9 +349,11 @@ contract Pack is ReentrancyGuard {
 
   function _status() internal view returns (uint8) {
     if (totalPaidOut > 0) return STATUS_PAID_OUT;
-    if (totalContributed >= goal) return STATUS_FUNDED;
-    if (block.timestamp <= deadline) return STATUS_FUNDING;
-    return STATUS_REFUNDABLE;
+    bool expired = block.timestamp > deadline;
+    if (totalContributed >= goal) {
+      return (expired && memberCount < threshold) ? STATUS_REFUNDABLE : STATUS_FUNDED;
+    }
+    return expired ? STATUS_REFUNDABLE : STATUS_FUNDING;
   }
 
   function _activeProposal(uint256 id) internal view returns (Proposal storage p) {

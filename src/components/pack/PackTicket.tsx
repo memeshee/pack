@@ -31,7 +31,7 @@ export function PackTicket({ view, size = 'lg', className, ribbon }: PackTicketP
                         </span>
                         <h3 className={cn('truncate font-display leading-none', lg ? 'text-[2rem] sm:text-[2.4rem]' : 'text-[1.6rem]')}>{view.name}</h3>
                     </div>
-                    <StatusChip status={view.status} className="mt-1 shrink-0" />
+                    <StatusChip status={view.status} balance={view.balance} className="mt-1 shrink-0" />
                 </div>
                 {view.story && lg && <p className="mt-3 max-w-md text-[15px] leading-snug text-ink-soft">{view.story}</p>}
 

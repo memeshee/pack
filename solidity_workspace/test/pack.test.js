@@ -235,6 +235,73 @@ describe("Pack + PackFactory", function () {
     expect(await pack.totalRefunded()).to.equal(amt);
   });
 
+  it("one wallet cannot cross the goal below threshold", async function () {
+    const { pack, creator, alice, goal } = await loadFixture(packFixture);
+    await expect(pack.connect(creator).contribute({ value: goal }))
+      .to.be.revertedWithCustomError(pack, "NotEnoughMembers");
+    // staying below the goal is fine, and the second backer can cross it
+    await pack.connect(creator).contribute({ value: goal - 1n });
+    await expect(pack.connect(creator).contribute({ value: 1n }))
+      .to.be.revertedWithCustomError(pack, "NotEnoughMembers");
+    await pack.connect(alice).contribute({ value: 1n });
+    expect(await pack.status()).to.equal(1n);
+    // contributions after the goal is met are never blocked
+    await expect(pack.connect(creator).contribute({ value: ONE })).to.not.be.reverted;
+  });
+
+  it("createProposal requires enough backers", async function () {
+    const { pack, creator, recipient } = await loadFixture(packFixture);
+    // Simulate a legacy-style state is impossible now: goal can't be met with 1 backer.
+    await expect(pack.connect(creator).createProposal(recipient.address, ONE, "x"))
+      .to.be.revertedWithCustomError(pack, "GoalNotReached");
+  });
+
+  it("a goal-met pack with too few backers is refundable (threshold 3, 2 backers)", async function () {
+    const { factory, creator, alice, bob } = await loadFixture(deployFactoryFixture);
+    const now = await time.latest();
+    const deadline = now + 7 * 24 * 3600;
+    await factory.connect(creator).createPack(NAME, EMOJI, STORY, ethers.parseEther("10"), deadline, 3, 3);
+    const pack = await ethers.getContractAt("Pack", await factory.packAt(0));
+    await pack.connect(creator).contribute({ value: ethers.parseEther("9") });
+    await expect(pack.connect(alice).contribute({ value: ethers.parseEther("1") }))
+      .to.be.revertedWithCustomError(pack, "NotEnoughMembers");
+    await pack.connect(alice).contribute({ value: ethers.parseEther("0.5") });
+    await expect(pack.connect(creator).contribute({ value: ethers.parseEther("1") }))
+      .to.be.revertedWithCustomError(pack, "NotEnoughMembers");
+    await time.increaseTo(deadline + 1);
+    expect(await pack.status()).to.equal(3n);
+    const tx = pack.connect(creator).claimRefund();
+    await expect(tx).to.changeEtherBalances([pack, creator], [-ethers.parseEther("9"), ethers.parseEther("9")]);
+    await expect(pack.connect(alice).claimRefund()).to.emit(pack, "RefundClaimed");
+    await expect(pack.connect(bob).claimRefund()).to.be.revertedWithCustomError(pack, "NothingToRefund");
+  });
+
+  it("normal 2-of-3 payout end to end", async function () {
+    const { pack, creator, alice, bob, recipient } = await loadFixture(packFixture);
+    await pack.connect(creator).contribute({ value: ethers.parseEther("4") });
+    await pack.connect(alice).contribute({ value: ethers.parseEther("3") });
+    await pack.connect(bob).contribute({ value: ethers.parseEther("3") });
+    expect(await pack.status()).to.equal(1n);
+    const amt = ethers.parseEther("8");
+    await pack.connect(bob).createProposal(recipient.address, amt, "venue deposit");
+    await pack.connect(alice).approve(0);
+    await expect(pack.connect(creator).execute(0)).to.changeEtherBalances([pack, recipient], [-amt, amt]);
+    expect(await pack.status()).to.equal(2n);
+  });
+
+  it("normal missed-goal refund works exactly once per backer", async function () {
+    const { pack, creator, alice, bob, deadline } = await loadFixture(packFixture);
+    await pack.connect(creator).contribute({ value: ethers.parseEther("2") });
+    await pack.connect(alice).contribute({ value: ethers.parseEther("3") });
+    await time.increaseTo(deadline + 1);
+    expect(await pack.status()).to.equal(3n);
+    await expect(pack.connect(creator).claimRefund()).to.changeEtherBalances([creator], [ethers.parseEther("2")]);
+    await expect(pack.connect(creator).claimRefund()).to.be.revertedWithCustomError(pack, "AlreadyRefunded");
+    await expect(pack.connect(alice).claimRefund()).to.changeEtherBalances([alice], [ethers.parseEther("3")]);
+    await expect(pack.connect(bob).claimRefund()).to.be.revertedWithCustomError(pack, "NothingToRefund");
+    expect(await ethers.provider.getBalance(await pack.getAddress())).to.equal(0n);
+  });
+
   it("refund blocked when goal met", async function () {
     const { pack, alice, deadline } = await loadFixture(fundedPackFixture);
     await time.increaseTo(deadline + 1);

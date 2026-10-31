@@ -1,7 +1,7 @@
 import { Amount } from '@/components/pack/Amount';
 import { PackButton } from '@/components/pack/PackButton';
 import { useWalletControls } from '@/hooks/useWalletControls';
-import { PackStatus, type PackSummary, type ViewerState } from '@/lib/pack';
+import { packPhase, type PackSummary, type ViewerState } from '@/lib/pack';
 import { ChipIn } from './ChipIn';
 import { ProposeForm } from './ProposeForm';
 import { RefundPanel } from './RefundPanel';
@@ -15,8 +15,7 @@ interface Props {
 /** One primary action for the current state of the pack and the viewer. */
 export function ActionPanel({ pack, viewer, walletBalance }: Props) {
     const w = useWalletControls();
-    const open = Date.now() / 1000 <= pack.deadline;
-    const goalMet = pack.totalContributed >= pack.goal;
+    const ph = packPhase(pack);
     const isMember = (viewer?.contribution ?? 0n) > 0n;
     const full = pack.memberCount >= pack.maxMembers;
 
@@ -28,21 +27,29 @@ export function ActionPanel({ pack, viewer, walletBalance }: Props) {
                     You put in <Amount wei={viewer!.contribution} />
                 </p>
             )}
-            {pack.status === PackStatus.Refundable ? (
+            {ph.refundable ? (
                 <RefundPanel pack={pack} viewer={viewer} />
             ) : (
                 <>
-                    {open && !w.isConnected && (
+                    {ph.goalMet && !ph.enoughBackers && (
+                        <p role="status" className="rounded-md border-[1.5px] border-dashed border-ink/50 bg-doge/30 p-3 text-sm font-semibold">
+                            Need {ph.backersNeeded} more {ph.backersNeeded === 1 ? 'backer' : 'backers'} before the pot can be spent.
+                        </p>
+                    )}
+                    {ph.open && !w.isConnected && (
                         <div className="space-y-2">
-                            <p className="font-display text-2xl leading-tight">{goalMet ? 'Goal met — time to decide.' : 'Filling the pot.'}</p>
+                            <p className="font-display text-2xl leading-tight">{ph.goalMet ? 'Goal met — time to decide.' : 'Filling the pot.'}</p>
                             <PackButton size="lg" className="w-full" onClick={w.open}>Sign in to chip in</PackButton>
-                            <p className="text-center text-[12px] text-ink-soft">X, email or a browser wallet. No seed phrase.</p>
+                            <p className="text-center text-[12px] text-ink-soft">
+                                X or email, no seed phrase. Or{' '}
+                                <button type="button" onClick={w.openBrowser} className="font-semibold underline underline-offset-4">use a browser wallet</button>.
+                            </p>
                         </div>
                     )}
-                    {open && w.isConnected && (full && !isMember ? <p className="text-sm text-ink-soft">This pack is full — every spot is taken.</p> : <ChipIn pack={pack} walletBalance={walletBalance} />)}
-                    {goalMet && isMember && pack.balance > 0n && <ProposeForm pack={pack} />}
-                    {goalMet && !isMember && w.isConnected && <p className="text-sm text-ink-soft">Goal met — backers are deciding what it's for.</p>}
-                    {!open && goalMet && pack.balance === 0n && <p className="font-display text-2xl">Paid. Receipt below.</p>}
+                    {ph.open && w.isConnected && (full && !isMember ? <p className="text-sm text-ink-soft">This pack is full — every spot is taken.</p> : <ChipIn pack={pack} isMember={isMember} walletBalance={walletBalance} />)}
+                    {ph.canPropose && isMember && <ProposeForm pack={pack} />}
+                    {ph.goalMet && ph.enoughBackers && !isMember && w.isConnected && <p className="text-sm text-ink-soft">Goal met — backers are deciding what it's for.</p>}
+                    {!ph.open && ph.goalMet && pack.balance === 0n && <p className="font-display text-2xl">Paid. Receipt below.</p>}
                 </>
             )}
         </section>

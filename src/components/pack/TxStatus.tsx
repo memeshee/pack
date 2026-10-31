@@ -1,11 +1,14 @@
 import { ArrowUpRight, Check, Loader2 } from 'lucide-react';
 import type { Hex } from 'viem';
 import type { TxPhase } from '@/hooks/usePackTx';
+import { useWalletControls } from '@/hooks/useWalletControls';
+import { NOT_SYNCED_COPY } from '@/lib/txErrors';
 import { explorerTx } from '@/lib/config';
 import { cn } from '@/lib/utils';
 
 /** Inline transaction status: honest about DogeOS block times, always links the receipt. */
 export function TxStatus({ phase, hash, error, className }: { phase: TxPhase; hash?: Hex; error?: string; className?: string }) {
+    const w = useWalletControls();
     if (phase === 'idle' && !error) return null;
     const link = hash && (
         <a href={explorerTx(hash)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline underline-offset-4">
@@ -30,6 +33,9 @@ export function TxStatus({ phase, hash, error, className }: { phase: TxPhase; ha
                 </span>
             )}
             {error && <span className="text-stamp">{error}</span>}
+            {error === NOT_SYNCED_COPY && (
+                <button type="button" onClick={w.openBrowser} className="font-semibold underline underline-offset-4">Use a browser wallet</button>
+            )}
             {link}
         </div>
     );

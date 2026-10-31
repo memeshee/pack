@@ -5,8 +5,8 @@ import type { Abi, Address, Hex, TransactionReceipt } from 'viem';
 import { toast } from '@/hooks/use-toast';
 import { TARGET_CHAIN } from '@/lib/config';
 import { publicClient } from '@/lib/pack';
-import { describeTxError, REJECTED_COPY } from '@/lib/txErrors';
-import { ensureTargetChain, isUserRejection } from '@/lib/wagmi';
+import { describeTxError, isReceiptTimeout, REJECTED_COPY } from '@/lib/txErrors';
+import { ensureTargetChain, isUserRejection, waitForWalletSync } from '@/lib/wagmi';
 
 export type TxPhase = 'idle' | 'signing' | 'pending' | 'success' | 'error';
 
@@ -35,6 +35,8 @@ export function usePackTx() {
             setHash(undefined);
             setPhase('signing');
             try {
+                // Embedded sign-in must be visible to wagmi before any write is attempted.
+                await waitForWalletSync();
                 await ensureTargetChain();
                 const h = await writeContractAsync({ ...req, chainId: TARGET_CHAIN.id } as Parameters<typeof writeContractAsync>[0]);
                 setHash(h);
@@ -48,9 +50,12 @@ export function usePackTx() {
             } catch (err) {
                 const rejected = isUserRejection(err);
                 const msg = describeTxError(err);
+                const timedOut = isReceiptTimeout(err);
                 setError(msg);
                 setPhase(rejected ? 'idle' : 'error');
-                toast({ title: rejected ? REJECTED_COPY : msg, variant: rejected ? 'default' : 'destructive' });
+                toast({ title: rejected ? REJECTED_COPY : msg, variant: rejected || timedOut ? 'default' : 'destructive' });
+                // The tx may have landed after we stopped waiting: refresh so the UI catches up.
+                if (timedOut) void qc.invalidateQueries();
                 return null;
             }
         },

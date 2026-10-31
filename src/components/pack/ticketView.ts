@@ -9,6 +9,8 @@ export interface TicketView {
     story?: string;
     status: PackStatusValue;
     pot: bigint;
+    /** DOGE still held by the pack; undefined for the labelled sample. */
+    balance?: bigint;
     goal: bigint;
     deadline: number;
     threshold: number;
@@ -24,6 +26,7 @@ export const toTicketView = (s: PackSummary): TicketView => ({
     story: s.story || undefined,
     status: s.status,
     pot: s.totalContributed,
+    balance: s.balance,
     goal: s.goal,
     deadline: s.deadline,
     threshold: s.threshold,

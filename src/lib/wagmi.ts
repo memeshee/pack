@@ -32,6 +32,22 @@ export const isUserRejection = (err: unknown): boolean => {
     return err instanceof BaseError && !!err.walk((x) => x instanceof UserRejectedRequestError);
 };
 
+export const WALLET_NOT_SYNCED = 'WALLET_NOT_SYNCED';
+
+/**
+ * An embedded (DogeOS SDK) sign-in is only usable for writes once wagmi sees the account.
+ * Waits briefly for that sync; throws WALLET_NOT_SYNCED so the UI can offer a browser wallet.
+ */
+export async function waitForWalletSync(timeoutMs = 8000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const { isConnected, connector, address } = getAccount(wagmiConfig);
+        if (isConnected && connector && address) return;
+        await new Promise((r) => setTimeout(r, 250));
+    }
+    throw new Error(WALLET_NOT_SYNCED);
+}
+
 /**
  * Makes sure the connected wallet is on TARGET_CHAIN: switches to it, and adds it
  * to the wallet first (MetaMask, Trust Wallet, ...) if the wallet doesn't know it.

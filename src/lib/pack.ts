@@ -1,4 +1,4 @@
-import { createPublicClient, formatEther, http, type Abi, type Address, type Hex } from 'viem';
+import { BaseError, ContractFunctionRevertedError, ContractFunctionZeroDataError, createPublicClient, formatEther, http, type Abi, type Address, type Hex } from 'viem';
 import PackArtifact from '@/abi/PackABI.json';
 import PackFactoryArtifact from '@/abi/PackFactoryABI.json';
 import { PACK_FACTORY_ADDRESS } from '@/contracts/address';
@@ -158,6 +158,26 @@ export function formatDoge(wei: bigint, maxFractionDigits = 2): string {
     const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     const trimmed = frac.slice(0, maxFractionDigits).replace(/0+$/, '');
     return trimmed ? `${grouped}.${trimmed}` : grouped;
+}
+
+/**
+ * Why a pack read failed: the address answered with nothing / a revert (not a Pack), or the
+ * DogeOS RPC itself didn't answer. Anything we can't prove is "not a pack" is treated as an RPC problem.
+ */
+export function classifyReadError(err: unknown): 'not-a-pack' | 'rpc' {
+    if (err instanceof BaseError && err.walk((e) => e instanceof ContractFunctionZeroDataError || e instanceof ContractFunctionRevertedError)) return 'not-a-pack';
+    return 'rpc';
+}
+
+/** What a pack allows right now, derived only from on-chain numbers (mirrors Pack.sol rules). */
+export function packPhase(p: PackSummary, now = Date.now() / 1000) {
+    const open = now <= p.deadline;
+    const goalMet = p.totalContributed >= p.goal;
+    const enoughBackers = p.memberCount >= p.threshold;
+    const backersNeeded = Math.max(0, p.threshold - p.memberCount);
+    const refundable = p.totalPaidOut === 0n && !open && (!goalMet || !enoughBackers);
+    const canPropose = goalMet && enoughBackers && p.balance > 0n && !refundable;
+    return { open, goalMet, enoughBackers, backersNeeded, refundable, canPropose };
 }
 
 export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;

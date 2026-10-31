@@ -28,9 +28,16 @@ export function ConnectButton() {
     if (w.isConnected && w.address) return <WalletMenu address={w.address} onDisconnect={w.disconnect} />;
 
     return (
-        <PackButton size="sm" onClick={w.open} disabled={w.isConnecting} aria-label="Sign in to Pack">
-            {w.isConnecting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            {w.isConnecting ? 'Signing in…' : w.provider === 'dogeos' ? 'Sign in' : 'Use a browser wallet'}
-        </PackButton>
+        <div className="flex items-center gap-2">
+            {w.provider === 'dogeos' && (
+                <button type="button" onClick={w.openBrowser} disabled={w.isConnecting} className="hidden text-[13px] font-semibold underline underline-offset-4 disabled:opacity-50 md:inline">
+                    Use a browser wallet
+                </button>
+            )}
+            <PackButton size="sm" onClick={w.open} disabled={w.isConnecting} aria-label="Sign in to Pack">
+                {w.isConnecting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                {w.isConnecting ? 'Signing in…' : w.provider === 'dogeos' ? 'Sign in' : 'Use a browser wallet'}
+            </PackButton>
+        </div>
     );
 }
