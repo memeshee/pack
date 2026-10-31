@@ -6,6 +6,18 @@ import type { Plugin } from "vite";
 
 const VALID_EXTENSIONS = new Set([".jsx", ".tsx"]);
 
+/** The slice of a Babel JSXOpeningElement this plugin reads. */
+interface JsxAttribute {
+  type: string;
+  name?: { name?: string };
+}
+interface JsxOpeningElement {
+  type: string;
+  name?: { type: string; name: string; end?: number | null };
+  attributes?: JsxAttribute[];
+  loc?: { start: { line: number; column: number } } | null;
+}
+
 /**
  * Returns a Vite plugin that adds component data attributes for component selection.
  */
@@ -32,14 +44,15 @@ export default function componentTagger(): Plugin {
         const ms = new MagicString(code);
         const fileRelative = path.relative(process.cwd(), id);
 
-        walk(ast as any, {
-          enter(node: any) {
+        walk(ast as unknown as Parameters<typeof walk>[0], {
+          enter(rawNode) {
+            const node = rawNode as unknown as JsxOpeningElement;
             try {
               if (node.type !== "JSXOpeningElement") return;
 
               // ── 1. Extract the tag / component name ──────────────────────────────
               if (node.name?.type !== "JSXIdentifier") return;
-              const tagName = node.name.name as string;
+              const tagName = node.name.name;
               if (!tagName) return;
 
               // Skip certain HTML elements that are too generic
@@ -57,7 +70,7 @@ export default function componentTagger(): Plugin {
 
               // ── 2. Check whether the tag already has data-component-id ───────────────
               const alreadyTagged = node.attributes?.some(
-                (attr: any) =>
+                (attr) =>
                   attr.type === "JSXAttribute" &&
                   attr.name?.name === "data-component-id",
               );

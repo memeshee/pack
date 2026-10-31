@@ -30,7 +30,7 @@ export function ConnectButton() {
     return (
         <div className="flex items-center gap-2">
             {w.provider === 'dogeos' && (
-                <button type="button" onClick={w.openBrowser} disabled={w.isConnecting} className="hidden text-[13px] font-semibold underline underline-offset-4 disabled:opacity-50 md:inline">
+                <button type="button" onClick={w.openBrowser} disabled={w.isConnecting} className="text-[12px] font-semibold underline underline-offset-4 disabled:opacity-50 sm:text-[13px]">
                     Use a browser wallet
                 </button>
             )}

@@ -119,10 +119,12 @@ describe("Pack + PackFactory", function () {
   });
 
   it("packsOf tracks membership across multiple packs", async function () {
-    const { factory, pack, alice, deadline } = await loadFixture(packFixture);
-    await factory.createPack("Second", "🎉", "", ONE, deadline, 2, 2);
+    const { factory, pack, creator, alice, deadline } = await loadFixture(packFixture);
+    await factory.createPack("Second", "🎉", "", ethers.parseEther("2"), deadline, 2, 2);
     const second = await ethers.getContractAt("Pack", await factory.packAt(1));
     await pack.connect(alice).contribute({ value: ONE });
+    // Two backers are needed to cross the 2 DOGE goal, so the creator chips in first.
+    await second.connect(creator).contribute({ value: ONE });
     await second.connect(alice).contribute({ value: ONE });
     expect(await factory.packsOf(alice.address)).to.deep.equal([
       await pack.getAddress(),
@@ -251,7 +253,8 @@ describe("Pack + PackFactory", function () {
 
   it("createProposal requires enough backers", async function () {
     const { pack, creator, recipient } = await loadFixture(packFixture);
-    // Simulate a legacy-style state is impossible now: goal can't be met with 1 backer.
+    // Below the 10 DOGE goal nobody can propose yet.
+    await pack.connect(creator).contribute({ value: ONE });
     await expect(pack.connect(creator).createProposal(recipient.address, ONE, "x"))
       .to.be.revertedWithCustomError(pack, "GoalNotReached");
   });

@@ -32,7 +32,10 @@ const CreatePage = () => {
                             {w.isConnected ? (
                                 <PackButton type="submit" size="lg" disabled={tx.busy}>{tx.busy ? 'Creating…' : 'Create the pack'}</PackButton>
                             ) : (
-                                <PackButton type="button" size="lg" onClick={w.open}>Sign in to create</PackButton>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                                    <PackButton type="button" size="lg" onClick={w.open}>Sign in to create</PackButton>
+                                    <button type="button" onClick={w.openBrowser} className="text-sm font-semibold underline underline-offset-4">Use a browser wallet</button>
+                                </div>
                             )}
                             {broke && (
                                 <p className="text-sm text-ink-soft">
